@@ -1,0 +1,19 @@
+{
+  "inputs": [
+    {
+      "type": "promptString",
+      "id": "make-mcp-token",
+      "description": "Make MCP token (not your Telegram bot token)",
+      "password": true
+    }
+  ],
+  "servers": {
+    "make": {
+      "type": "http",
+      "url": "https://eu1.make.com/mcp/server/a671e4f6-0b14-46b4-be75-9876615babd1",
+      "headers": {
+        "Authorization": "${input:make-mcp-token}"
+      }
+    }
+  }
+}
