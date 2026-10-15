@@ -1,19 +1,10 @@
 {
-  "inputs": [
-    {
-      "type": "promptString",
-      "id": "make-mcp-token",
-      "description": "Make MCP token (not your Telegram bot token)",
-      "password": true
+    "mcpServers": {
+        "make": {
+            "url": "https://eu1.make.com/mcp/server/a671e4f6-0b14-46b4-be75-9876615babd1",
+            "headers": {
+                "Authorization": "Bearer 9b4fcc26-42dd-494d-a10c-ba19cdafdec5"
+            }
+        }
     }
-  ],
-  "servers": {
-    "make": {
-      "type": "http",
-      "url": "https://eu1.make.com/mcp/server/a671e4f6-0b14-46b4-be75-9876615babd1",
-      "headers": {
-        "Authorization": "${input:make-mcp-token}"
-      }
-    }
-  }
 }

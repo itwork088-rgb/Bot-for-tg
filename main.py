@@ -2,6 +2,7 @@ import logging
 import os
 from urllib.parse import urlsplit
 
+import httpx
 from dotenv import load_dotenv
 from google import genai
 from google.genai.errors import APIError
@@ -36,6 +37,26 @@ def validate_mini_app_url(value: str | None) -> str | None:
         or parsed.password is not None
     ):
         raise ValueError("MINI_APP_URL must be a public HTTPS URL.")
+    return url
+
+
+def validate_make_webhook_url(value: str | None) -> str | None:
+    if value is None or not value.strip():
+        return None
+
+    url = value.strip()
+    parsed = urlsplit(url)
+    if (
+        parsed.scheme != "https"
+        or not parsed.hostname
+        or not parsed.hostname.startswith("hook.")
+        or not parsed.hostname.endswith(".make.com")
+        or parsed.username is not None
+        or parsed.password is not None
+        or parsed.query
+        or parsed.fragment
+    ):
+        raise ValueError("MAKE_MESSAGE_WEBHOOK_URL must be a Make HTTPS webhook URL.")
     return url
 
 
@@ -80,6 +101,48 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_text(
             text,
             reply_markup=mini_app_keyboard(mini_app_url),
+        )
+
+
+async def track_incoming_message(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> None:
+    message = update.message
+    webhook_url: str | None = context.application.bot_data.get(
+        "make_message_webhook_url"
+    )
+    if not webhook_url or not message:
+        return
+
+    text = message.text or message.caption
+    if not text:
+        return
+
+    user = message.from_user
+    payload = {
+        "event": "telegram_message",
+        "source": "telegram",
+        "message_id": message.message_id,
+        "chat_id": str(message.chat_id),
+        "sender_id": str(user.id) if user else None,
+        "username": user.username if user else None,
+        "received_at": message.date.isoformat(),
+        "text": text,
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            response = await client.post(webhook_url, json=payload)
+            response.raise_for_status()
+    except httpx.HTTPStatusError as error:
+        logger.error(
+            "Make message logging failed with HTTP %s",
+            error.response.status_code,
+        )
+    except httpx.RequestError as error:
+        logger.error(
+            "Make message logging request failed (%s)",
+            type(error).__name__,
         )
 
 
@@ -153,6 +216,9 @@ def main() -> None:
     gemini_model = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
     try:
         mini_app_url = validate_mini_app_url(os.getenv("MINI_APP_URL"))
+        make_message_webhook_url = validate_make_webhook_url(
+            os.getenv("MAKE_MESSAGE_WEBHOOK_URL")
+        )
     except ValueError as error:
         raise SystemExit(str(error)) from error
 
@@ -179,7 +245,16 @@ def main() -> None:
     application.bot_data["gemini_client"] = genai.Client(api_key=gemini_api_key)
     application.bot_data["gemini_model"] = gemini_model
     application.bot_data["mini_app_url"] = mini_app_url
+    application.bot_data["make_message_webhook_url"] = make_message_webhook_url
 
+    application.add_handler(
+        MessageHandler(
+            filters.TEXT | filters.CAPTION,
+            track_incoming_message,
+            block=False,
+        ),
+        group=-1,
+    )
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(

@@ -14,19 +14,20 @@
 
 ## Make.com MCP в VS Code
 
-В `.vscode/mcp.json` настроен Make MCP Server. Указанный адрес требует
-заголовок `Authorization`, поэтому VS Code запросит Make MCP token при первом
-запуске. Вставь именно Make MCP token (не Telegram bot token и не Gemini API
-key); поле ввода скрывает значение, а VS Code хранит его в Secret Storage. В
-проекте сохраняется только ссылка `${input:make-mcp-token}`.
+В `.vscode/mcp.json` настроен документированный Make MCP token endpoint
+`https://eu1.make.com/mcp`. VS Code запросит Make MCP token при первом запуске.
+Вставь именно Make MCP token (не Telegram bot token и не Gemini API key); поле
+ввода скрывает значение, а VS Code хранит его в Secret Storage. В проекте
+сохраняется только ссылка `${input:make-mcp-token}`. OAuth Client ID для этого
+варианта не нужен.
 
 Если токена ещё нет, создай его в Make: профиль → **API access** → **Tokens** →
 **Add token**. Выдай `mcp:use` и только необходимые сценарные scopes, затем
 скопируй токен в защищённое поле VS Code. Не вставляй токен в `.env`,
 `.vscode/mcp.json` или чат.
 
-В VS Code выполни **MCP: List Servers**, выбери `make` → **Start Server**,
-подтверди доверие, а на запрос вставь Make MCP token. После запуска инструменты
+В VS Code выполни **MCP: List Servers**, выбери `make` → **Stop Server**, затем
+**Start Server** и на запрос вставь Make MCP token. После запуска инструменты
 Make будут доступны в Copilot Chat.
 
 Доступные инструменты зависят от выбранных разрешений Make. Разрешение на
@@ -77,3 +78,16 @@ npm exec --yes --package=wrangler -- wrangler pages deploy .\dist --project-name
 
 Отправь боту обычный текст для ответа Gemini. Для остановки нажми `Ctrl+C`
 в окне PowerShell.
+
+## Журнал входящих сообщений в Make
+
+Сценарий `Log Telegram incoming messages` принимает сообщения через Make
+custom webhook. В корневом `.env` задай `MAKE_MESSAGE_WEBHOOK_URL` адресом
+созданного webhook, затем перезапусти Python-бота. В Make передаются текст или
+подпись сообщения, ID чата, ID отправителя и время; события сохраняются в
+истории запусков сценария. Telegram polling остаётся включённым, поэтому
+сценарий не устанавливает Telegram webhook и не мешает работе бота.
+
+URL webhook содержит секретный идентификатор: храни его только в локальном
+`.env`, не коммить и не отправляй в чат. Если адрес webhook раскрыт, удали его
+и создай новый в Make.
